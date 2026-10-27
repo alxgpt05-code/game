@@ -1,7 +1,7 @@
 import * as T from 'https://esm.sh/three@0.169.0';
 import {OrbitControls} from 'https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js';
 import {RoomEnvironment} from 'https://esm.sh/three@0.169.0/examples/jsm/environments/RoomEnvironment.js';
-import {createScooter,createGriptapePreview,disposeScooter,variantNotes} from './models.js';
+import {createScooter,createGriptapePreview,disposeScooter,variantNotes} from './models.js?v=7';
 function visibleBounds(object){object.updateWorldMatrix(true,true);const box=new T.Box3();object.traverseVisible(o=>{if(!o.geometry)return;if(o.isInstancedMesh){o.computeBoundingBox();box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld))}else{if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld))}});return box;}
 export function startStudio(view){
  const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;view.appendChild(renderer.domElement);
@@ -22,6 +22,7 @@ export function startStudio(view){
  function frame(){requestAnimationFrame(frame);if(destination){controls.target.lerp(destination.target,.13);camera.position.lerp(destination.position,.13);if(camera.position.distanceTo(destination.position)<.0005){destination=null}}controls.autoRotate=auto&&!destination;controls.autoRotateSpeed=.8;controls.update();renderer.render(scene,camera)}frame();
  return {update(ids,c,cat){const hadRoot=!!root;indices=[...ids];color=c;category=cat;if(root){scene.remove(root);disposeScooter(root)}root=createScooter(ids,c);scene.add(root);if(hadRoot){pose();caption()}else fit(false);},setCategory(cat){category=cat;mode='detail';fit()},zoom(factor){destination=null;camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update()},thumbnail,rotate(){auto=!auto;return auto},explode(){exploded=!exploded;fit();return exploded},reset(){mode='full';exploded=false;fit()},getObject(){return root}};
 }
+
 
 
 

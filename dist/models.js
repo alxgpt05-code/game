@@ -1,7 +1,7 @@
 import * as T from 'https://esm.sh/three@0.169.0';
 import { RoundedBoxGeometry } from 'https://esm.sh/three@0.169.0/examples/jsm/geometries/RoundedBoxGeometry.js';
-import {forwardForkPoint,FRONT_AXLE_X} from './geometry-config.js';
-import {rideGriptapes} from './ride-action.js';
+import {forwardForkPoint,FRONT_AXLE_X} from './geometry-config.js?v=7';
+import {rideGriptapes} from './ride-action.js?v=7';
 
 // Metres. Reconstructed product silhouettes, not manufacturer CAD.
 const textureCache=new Map();
@@ -177,6 +177,7 @@ else{rod([tx,topY,-half],[tx,topY,half],.0112,barMat);if(bi===2)for(const s of [
  root.userData={groups,materials,indices:[...indices],width,length,topY,rearAxle};return root;
 }
 export function disposeScooter(root){root.traverse(o=>{if(o.geometry)o.geometry.dispose()});root.userData.materials?.forEach(m=>m.dispose());}
+
 
 
 
