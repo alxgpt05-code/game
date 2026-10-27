@@ -1,13 +1,25 @@
 import * as T from 'https://esm.sh/three@0.169.0';
 import { RoundedBoxGeometry } from 'https://esm.sh/three@0.169.0/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {forwardForkPoint,FRONT_AXLE_X} from './geometry-config.js';
+import {rideGriptapes} from './ride-action.js';
 
 // Metres. Reconstructed product silhouettes, not manufacturer CAD.
 const textureCache=new Map();
 const mushroomTexture=new T.TextureLoader().load('./assets/mushroom-reference.jpg',()=>document.dispatchEvent(new Event('scooter-texture-ready')));mushroomTexture.colorSpace=T.SRGBColorSpace;mushroomTexture.anisotropy=8;
 function canvasTexture(key,draw,w=1024,h=512){if(textureCache.has(key))return textureCache.get(key);const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=8;textureCache.set(key,tex);return tex;}
 function seededNoise(ctx,w,h,base,range){let seed=7127;const im=ctx.createImageData(w,h);for(let i=0;i<im.data.length;i+=4){seed=(seed*16807)%2147483647;let n=base+seed/2147483647*range;im.data[i]=im.data[i+1]=im.data[i+2]=n;im.data[i+3]=255}ctx.putImageData(im,0,0)}
-function grit(index){return canvasTexture('grit'+index,(c,w,h)=>{seededNoise(c,w,h,22,48);c.textAlign='center';c.textBaseline='middle';if(index===1){c.save();c.translate(w/2,h/2);c.rotate(-.12);c.font='italic 900 135px Arial';c.fillStyle='#e5e5d9';c.fillText('ETHIC',0,-15);c.font='24px Arial';c.fillText('D T C  /  D I S S I D E N C E',0,80);c.restore()}else if(index===2){c.strokeStyle='#bed640';c.lineWidth=12;c.beginPath();c.moveTo(70,h-40);c.lineTo(w-80,40);c.stroke();c.fillStyle='#ecf1de';c.font='900 62px Arial';c.fillText('TECH TEAM',w/2,h/2)}else if(index===0){c.fillStyle='#d9ded1';c.font='900 32px Arial';c.fillText('MOB GRIP',w*.8,h*.8)}});}
+function rideGripTexture(index){
+ const entry=rideGriptapes[index-4],key='ride-grit-'+entry.slug;
+ if(textureCache.has(key))return textureCache.get(key);
+ const texture=canvasTexture(key,(c,w,h)=>seededNoise(c,w,h,22,48),2048,512);
+ const image=new Image();image.onload=()=>{
+  const c=texture.image.getContext('2d'),[x,y,w,h]=entry.crop;
+  c.save();c.clearRect(0,0,2048,512);c.scale(2048/w,512/h);c.translate(-x,-y);c.rotate(entry.angle);c.drawImage(image,0,0);c.restore();
+  texture.needsUpdate=true;document.dispatchEvent(new Event('scooter-texture-ready'));
+ };image.src=new URL('./assets/ride-action/'+entry.slug+'.webp',import.meta.url).href;
+ return texture;
+}
+function grit(index){if(index>=4)return rideGripTexture(index);return canvasTexture('grit'+index,(c,w,h)=>{seededNoise(c,w,h,22,48);c.textAlign='center';c.textBaseline='middle';if(index===1){c.save();c.translate(w/2,h/2);c.rotate(-.12);c.font='italic 900 135px Arial';c.fillStyle='#e5e5d9';c.fillText('ETHIC',0,-15);c.font='24px Arial';c.fillText('D T C  /  D I S S I D E N C E',0,80);c.restore()}else if(index===2){c.strokeStyle='#bed640';c.lineWidth=12;c.beginPath();c.moveTo(70,h-40);c.lineTo(w-80,40);c.stroke();c.fillStyle='#ecf1de';c.font='900 62px Arial';c.fillText('TECH TEAM',w/2,h/2)}else if(index===0){c.fillStyle='#d9ded1';c.font='900 32px Arial';c.fillText('MOB GRIP',w*.8,h*.8)}});}
 function decalTexture(text,color='#e4e5df',sub=''){return canvasTexture('label'+text+color+sub,(c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.font='italic 900 160px Arial';c.fillText(text,w/2,h*.46,w*.94);if(sub){c.font='30px Arial';c.fillText(sub,w/2,h*.78,w*.91)}},1024,512)}
 function sidewallTexture(brand){return canvasTexture('wheel'+brand,(c,w,h)=>{c.clearRect(0,0,w,h);c.translate(w/2,h/2);c.fillStyle='#b9bdb1';let s=brand.toUpperCase()+'  •  110 MM  •  88A  •  ';c.font='bold 35px Arial';c.textAlign='center';for(let i=0;i<s.length;i++){c.save();c.rotate(i/s.length*Math.PI*2);c.fillText(s[i],0,-h*.435);c.restore()}},512,512)}
 export const variantNotes=[
@@ -19,6 +31,16 @@ export const variantNotes=[
 ['ODI · частые mushroom-рёбра','Ethic · спиральный рельеф','Tech Team · ромбовидная насечка','Чёрная резина · частая мелкая насечка'],
 ['MOB · абразивная чёрная поверхность','Ethic DTC · графическая шкурка','Tech Team · диагональная графика','Чёрная абразивная шкурка без рисунка, по фото'],
 ['Apex · низкая коническая крышка','Ethic · ступенчатая крышка','Tech Team · высокая крышка']];
+
+variantNotes[5].push('Storm · резина · 165 мм · 100 г / пара','Storm · фиолетовая резина · 165 мм · 100 г / пара');
+variantNotes[6].push(...rideGriptapes.map(p=>p.note+' · оригинальный рисунок Ride Action'));
+
+export function createGriptapePreview(index){
+ const root=new T.Group(),groups=Array.from({length:8},()=>new T.Group());root.add(...groups);
+ const material=new T.MeshStandardMaterial({map:grit(index),bumpMap:grit(0),bumpScale:.0006,roughness:.98,side:T.DoubleSide});
+ const mesh=new T.Mesh(new T.PlaneGeometry(.44,.11),material);mesh.rotation.x=-Math.PI/2;groups[6].add(mesh);
+ root.userData={groups,materials:[material]};return root;
+}
 
 export function createScooter(indices,color){
  const root=new T.Group(),groups=Array.from({length:8},(_,i)=>{const g=new T.Group();g.userData.category=i;root.add(g);return g});
@@ -68,7 +90,7 @@ export function createScooter(indices,color){
  g=groups[6];
  // Concave griptape mesh follows the deck profile, with real abrasive normal relief.
  const gp=[],guv=[],gidx=[],gx0=rear+.067,gx1=.115;
- for(let i=0;i<=20;i++)for(let j=0;j<=12;j++){const z=(j/12-.5)*(width-.009),x=gx0+(gx1-gx0)*i/20;gp.push(x,.1145+.0045*Math.pow(z/(width/2),2),z);guv.push(i/20,j/12);if(i<20&&j<12){let a=i*13+j;gidx.push(a,a+13,a+1,a+1,a+13,a+14)}}
+ for(let i=0;i<=20;i++)for(let j=0;j<=12;j++){const z=(j/12-.5)*(width-.009),x=gx0+(gx1-gx0)*i/20;const q=Math.abs(z)/width;let height;if(q<=.34)height=.0255+.0035*Math.pow(q/.34,2);else{const t=(.18-Math.sqrt(.0324-.08*(q-.34)))/.04;height=(1-t)*(1-t)*.029+2*(1-t)*t*.032+t*t*.028}gp.push(x,yDeck+height+.0007,z);guv.push(i/20,j/12);if(i<20&&j<12){let a=i*13+j;gidx.push(a,a+13,a+1,a+1,a+13,a+14)}}
  const gg=new T.BufferGeometry();gg.setAttribute('position',new T.Float32BufferAttribute(gp,3));gg.setAttribute('uv',new T.Float32BufferAttribute(guv,2));gg.setIndex(gidx);gg.computeVertexNormals();let gm=new T.MeshStandardMaterial({map:grit(indices[6]),bumpMap:grit(0),bumpScale:.0006,roughness:.98,side:T.DoubleSide});materials.push(gm);put(gg,gm);
  // Wheels: three genuinely different cores, bearing assemblies and PU profiles.
  g=groups[1];const wi=indices[1];
@@ -149,8 +171,8 @@ else{rod([tx,topY,-half],[tx,topY,half],.0112,barMat);if(bi===2)for(const s of [
  box(.013,clampHeight,.024,cmat,[cx+.024,cy+clampHeight/2,0],.002);box(.001,clampHeight+.001,.03,black,[cx+.025,cy+clampHeight/2,0],.0002);
  for(const t of [.22,.78]){rod([cx+.018,cy+clampHeight*t,-.018],[cx+.018,cy+clampHeight*t,.021],.003,chrome);bolt([cx+.018,cy+clampHeight*t,.021],'z',.0055)}if(ci!==3)label(['ROOT','ETHIC','TT'][ci],[cx-.003,cy+clampHeight*.51,.025],.035,.013,'z');
  // Grips: distinct mushroom, diagonal and diamond patterns. InstancedMesh keeps mobile draw calls low.
- g=groups[5];const gi=indices[5],gripLength=[.135,.16,.145,.13][gi],r=[.0155,.0165,.017,.015][gi],gripMat=mat(gi===1?'#4c4756':gi===2?'#44463d':gi===3?'#18191c':color,0,.88);let ridgeCount=gi===0?48:gi===1?37:28;let dummy=new T.Object3D();
- for(const s of [-1,1]){g=new T.Group();groups[5].add(g);let ridgeGeo=new T.TorusGeometry(r,.0007,5,32);const inst=new T.InstancedMesh(ridgeGeo,gripMat,ridgeCount);inst.castShadow=true;g.add(inst);let n=0;const z0=s*(half-gripLength);rod([tx,topY,z0],[tx,topY,s*half],r-.001,gripMat);for(let i=0;i<ridgeCount;i++){dummy.position.set(tx,topY,z0+s*i*gripLength/(ridgeCount-1));dummy.rotation.set(gi===1?.24:0,gi===2?.22:0,0);dummy.updateMatrix();inst.setMatrixAt(n++,dummy.matrix)}if(gi===2){for(let j=0;j<8;j++){let a=j/8*Math.PI*2;rod([tx+Math.cos(a)*r,topY+Math.sin(a)*r,z0],[tx+Math.cos(a+.45)*r,topY+Math.sin(a+.45)*r,s*half],.0005,rubber)}}for(const z of [z0,s*half])torus(r+.001,.0016,gripMat,[tx,topY,z]);rod([tx,topY,s*half],[tx,topY,s*(half+.005)],r+.0015,black);if(gi!==3)label(['ODI','ETHIC','TT'][gi],[tx+.001,topY+.016,z0+s*gripLength*.53],.017,.035,'y').rotation.z=Math.PI/2;if(gi!==3){const cap=label(['ODI','E','TT'][gi],[tx,topY,s*(half+.0053)],.022,.014,s<0?'-z':'z');}}
+ g=groups[5];const gi=indices[5],gripLength=[.135,.16,.145,.13,.165,.165][gi],r=[.0155,.0165,.017,.015,.0165,.0165][gi],gripMat=mat(gi===5?'#9c41cf':gi===4?'#151519':gi===1?'#4c4756':gi===2?'#44463d':gi===3?'#18191c':color,0,.88);let ridgeCount=gi>=4?62:gi===0?48:gi===1?37:28;let dummy=new T.Object3D();
+ for(const s of [-1,1]){g=new T.Group();groups[5].add(g);let ridgeGeo=new T.TorusGeometry(r,.0007,5,32);const inst=new T.InstancedMesh(ridgeGeo,gripMat,ridgeCount);inst.castShadow=true;g.add(inst);let n=0;const z0=s*(half-gripLength);rod([tx,topY,z0],[tx,topY,s*half],r-.001,gripMat);for(let i=0;i<ridgeCount;i++){dummy.position.set(tx,topY,z0+s*i*gripLength/(ridgeCount-1));dummy.rotation.set(gi===1?.24:0,gi===2?.22:0,0);dummy.updateMatrix();inst.setMatrixAt(n++,dummy.matrix)}if(gi===2){for(let j=0;j<8;j++){let a=j/8*Math.PI*2;rod([tx+Math.cos(a)*r,topY+Math.sin(a)*r,z0],[tx+Math.cos(a+.45)*r,topY+Math.sin(a+.45)*r,s*half],.0005,rubber)}}for(const z of [z0,s*half])torus(r+.001,.0016,gripMat,[tx,topY,z]);rod([tx,topY,s*half],[tx,topY,s*(half+.005)],r+.0015,black);if(gi!==3)label(['ODI','ETHIC','TT','', 'RIDE ACTION','RIDE ACTION'][gi],[tx+.001,topY+.016,z0+s*gripLength*.53],.017,.035,'y').rotation.z=Math.PI/2;if(gi!==3){const cap=label(['ODI','E','TT','','RA','RA'][gi],[tx,topY,s*(half+.0053)],.022,.014,s<0?'-z':'z');}}
  // Front and rear wheel axle positions are shared by the fork and dropouts.
  root.userData={groups,materials,indices:[...indices],width,length,topY,rearAxle};return root;
 }
